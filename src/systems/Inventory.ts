@@ -8,6 +8,8 @@ import { Logger } from '../utils/Logger.js';
 export interface InventorySlot {
   itemId: string | null;
   count: number;
+  /** Optional metadata (e.g., tool durability). */
+  metadata?: Record<string, unknown>;
 }
 
 export interface InventoryConfig {
@@ -228,6 +230,27 @@ export class Inventory {
       }
     }
     return -1;
+  }
+
+  /**
+   * Alias for findSlotWithItem (used by some systems).
+   */
+  getSlotWithItem(itemId: string): number {
+    return this.findSlotWithItem(itemId);
+  }
+
+  /**
+   * Get the number of available (empty) slots.
+   */
+  getAvailableSpace(): number {
+    return this.totalSlots - this.getUsedSlots();
+  }
+
+  /**
+   * Public method to notify change callbacks.
+   */
+  emitChange(): void {
+    this.notifyChange();
   }
 
   /**

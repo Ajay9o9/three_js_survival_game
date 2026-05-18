@@ -28,9 +28,15 @@ export class ResourceNode extends Entity {
   private readonly gatherSpeed!: number;
   private readonly dropItemIds!: string[];
   private readonly dropAmounts!: number[];
+  /** Durability worn per gather tick (set when gathering starts). */
+  private durabilityWearPerTick: number = 0;
   private isGathering: boolean = false;
+  /** Expose durability wear per tick for the tool manager. */
+  get durabilityWearPerTickPublic(): number {
+    return this.durabilityWearPerTick;
+  }
   private gatherProgress: number = 0;
-  private readonly gatherDuration: number = 1.0; // seconds to gather with bare hands
+  private readonly gatherDuration: number = 1.0; // seconds to gather with correct tool
   private meshRef!: THREE.Group;
   private healthBar: THREE.Mesh | null = null;
   private highlightMesh: THREE.Mesh | null = null;
@@ -46,6 +52,8 @@ export class ResourceNode extends Entity {
     this.maxHealth = config.maxHealth;
     this.toolRequired = config.toolRequired;
     this.gatherSpeed = config.gatherSpeed;
+    // gatherDuration is inverse of gatherSpeed: higher speed = shorter duration
+    this.gatherDuration = 1.0 / config.gatherSpeed;
     this.dropItemIds = config.dropItemIds;
     this.dropAmounts = config.dropAmounts;
     this.inventory = inventory ?? null;
@@ -356,10 +364,11 @@ export class ResourceNode extends Entity {
   }
 
   /**
-   * Get the gather duration in seconds.
+   * Get the gather duration in seconds, adjusted by tool speed multiplier.
+   * @param speedMultiplier - Tool speed multiplier (default 1.0 = no tool).
    */
-  getGatherDuration(): number {
-    return this.gatherDuration;
+  getGatherDuration(speedMultiplier: number = 1.0): number {
+    return this.gatherDuration / speedMultiplier;
   }
 
   /**
@@ -371,21 +380,21 @@ export class ResourceNode extends Entity {
 
   /**
    * Start gathering this resource node.
-   * @param toolType - The tool type being used
-   * @returns true if gathering started successfully
+   * @param toolType - The tool type being used.
+   * @param durabilityWear - Amount of durability to consume per gather tick.
+   * @returns true if gathering started successfully.
    */
-  startGather(toolType: ToolType): boolean {
+  startGather(toolType: ToolType, durabilityWear: number = 0): boolean {
     if (this.isGathering) return false;
     if (this.health <= 0) return false;
 
-    // Check if correct tool is required
+    // Tool check — warn if wrong tool but still allow gathering
     if (this.toolRequired !== ToolType.NONE && toolType !== this.toolRequired) {
-      Logger.debug('ResourceNode', `Wrong tool: need ${this.toolRequired}, got ${toolType}`);
-      return false;
+      Logger.debug('ResourceNode', `No correct tool: need ${this.toolRequired}, gathering without tool (slower)`);
     }
 
     this.isGathering = true;
-    this.gatherProgress = 0;
+    this.durabilityWearPerTick = durabilityWear;
     return true;
   }
 
@@ -396,7 +405,7 @@ export class ResourceNode extends Entity {
     this.isGathering = false;
     this.gatherProgress = 0;
 
-    // Deal damage
+    // Deal damage scaled by base gather speed
     const damage = this.gatherSpeed;
     this.health -= damage;
 

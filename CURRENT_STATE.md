@@ -8,41 +8,50 @@
   - Bootstrap: main.ts, index.html with loading screen
 
 - **Phase 2 Survival Mechanics** (complete):
-  - **Item Definitions** (ItemDefinition.ts): 15+ items across 5 categories (resource, food, tool, material, building) with tool types, resource types, food values, durability
+  - **Item Definitions** (ItemDefinition.ts): 15+ items across 5 categories
   - **Inventory System** (Inventory.ts): 9x4 grid, item stacking, add/remove/find operations, serialization/deserialization, change callbacks
-  - **Resource Nodes** (ResourceNode.ts): Interactive trees (wood), rocks (stone), ore deposits (ore), berry bushes (berries) with health bars, highlight rings, tool requirements, drop tables
-  - **HUD System** (HUD.ts): Health/hunger/stamina bars with icons, 9-slot hotbar with item icons, interaction prompt, gather progress bar
-  - **Save System** (SaveSystem.ts): localStorage persistence, auto-save every 30s, save/load player stats/inventory/position/world state
-  - **Resource Gathering**: E key to gather nearby resources, progress bar, item drops to inventory, resource health depletion
-  - **Interactive World**: 20 trees, 15 rocks, 8 ore deposits, 12 berry bushes scattered procedurally
+  - **Resource Nodes** (ResourceNode.ts): Interactive trees, rocks, ore, bushes with health bars, highlight rings, tool requirements
+  - **HUD System** (HUD.ts): Health/hunger/stamina bars, 9-slot hotbar, interaction prompts, gather progress bar
+  - **Save System** (SaveSystem.ts): localStorage persistence, auto-save every 30s
+  - **Resource Gathering**: E key to gather nearby resources, progress bar, item drops to inventory
 
-## Broken Systems
-- (none — all systems functional)
-
-## Partially Implemented Systems
-- Crafting system: Item definitions include building costs but no recipe engine yet
-- Tools: Defined in ItemRegistry but no tool speed bonus applied during gathering
-- Building: Items defined but no placement system
-
-## Current Blockers
-- None — ready to begin Phase 3 (crafting & building)
+- **Phase 3 Crafting & Building** (COMPLETE):
+  - **Crafting System** (Crafting.ts): 11 recipes across Materials, Tools, Building categories. Ingredient checking, production, inventory integration
+  - **Tool System** (ToolManager.ts): Tool equipping from hotbar (1-9 keys), speed bonuses applied during gathering, durability tracking and wear, tool break on zero durability
+  - **Building System** (Building.ts): Grid snapping (1m grid), placement preview (green=valid, red=invalid), 45° rotation (R key), click to place, building removal with 50% refund
+  - **Inventory UI** (InventoryUI.ts): Full 9x4 grid screen (I key), arrow key navigation, click to select, item emojis, slot count display
+  - **Building Controls**: Q to toggle building preview, R to rotate, Click to place, ESC to cancel
 
 ## Current Architecture Status
-- 21 TypeScript modules across 6 subsystem categories
+- 25 TypeScript modules across 6 subsystem categories
 - Three.js 0.160.0 via npm with @types/three
-- Vite build: ~514KB bundle (132KB gzipped)
+- Vite build: ~560KB bundle
 - Modular architecture with clear separation: core, world, entities, systems, ui, utils
 - Fixed timestep physics with variable rendering
-- localStorage-based save system
-- HUD overlay with CSS (no Three.js UI)
 
-## Latest Debugging State
-- All TypeScript compilation errors resolved (8 initial errors fixed in Phase 2)
-- Key fixes: ResourceNode material type casting, SaveSystem world type, HUD isVisible duplicate, main.ts auto-save throttling
-- Build verified: `tsc --noEmit` passes, `vite build` succeeds
+## New Systems Added in Phase 3
+| System | File | Key | Function |
+|--------|------|-----|----------|
+| CraftingSystem | src/systems/Crafting.ts | — | 11 recipes, ingredient consumption |
+| ToolManager | src/systems/ToolManager.ts | 1-9 | Equip/unequip tools, durability tracking |
+| BuildingSystem | src/systems/Building.ts | Q/R/Click | Grid placement, preview, removal |
+| InventoryUI | src/ui/InventoryUI.ts | I | Full grid screen with navigation |
 
-## Recent Changes Affecting Stability
-- Phase 2 complete — all survival mechanics implemented
-- No breaking changes introduced
-- Inventory system integrated into Player entity
-- Resource nodes are now interactive with gathering mechanics
+## Controls
+| Key | Action |
+|-----|--------|
+| WASD | Move |
+| Shift | Sprint |
+| Space | Jump |
+| E | Gather nearby resource |
+| I | Toggle inventory screen |
+| Q | Toggle building preview |
+| R | Rotate building (during preview) |
+| Click (during preview) | Place building |
+| 1-9 | Equip/unequip tool from hotbar |
+| ESC | Release mouse / close UI |
+
+## Known Issues
+- Building meshes don't persist across page reload (need to recreate from save data)
+- Tool durability save/load not fully integrated with SaveSystem yet
+- No sound effects

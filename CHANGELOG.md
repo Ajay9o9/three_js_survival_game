@@ -85,3 +85,53 @@
 
 ### Breaking Changes
 - None — all changes are additive
+
+## Session 4 — 2026-05-18 — Phase 3: Crafting & Building
+
+### Critical Bug Fixes (Pre-Phase 3)
+- Fixed Entity constructor crash (`Cannot read properties of undefined reading position`)
+  — Moved `createMesh()` to accept config parameter instead of using `this` before `super()`
+- Fixed WASD movement axes swapped
+  — Corrected camera-relative rotation formula to match camera coordinate system
+- Fixed gathering not working (tool check blocked all gathers)
+  — Removed hard tool requirement, now allows gathering without tools
+- Fixed gather duration hardcoded to 1.0s
+  — Now calculated as `1 / gatherSpeed` (trees=0.33s, rocks=0.33s, ore=0.25s, bushes=1.0s)
+
+### Systems Added
+- **Crafting System** (Crafting.ts): 11 recipes across 3 categories (Materials, Tools, Building). Recipe registry with ingredient checking, ingredient consumption, inventory space validation, result production
+- **Tool System** (ToolManager.ts): Tool equipping from hotbar (keys 1-9), speed multiplier applied during gathering, durability tracking with wear per gather tick, tool break on zero durability, save/load durability to inventory metadata
+- **Building System** (Building.ts): 1m grid snapping, placement preview (green=valid/red=invalid), 45° rotation (R key), click to place, building removal with 50% ingredient refund, visual meshes with correct scale per type (walls=2 tall, floors=thin)
+- **Inventory UI** (InventoryUI.ts): Full 9x4 grid overlay (I key), arrow key navigation, click to select, item emoji icons, slot count display, inventory change callbacks
+
+### Systems Modified
+- **Inventory.ts**: Added `metadata` field to `InventorySlot`, added `getSlotWithItem()`, `getAvailableSpace()`, `emitChange()` methods
+- **ResourceNode.ts**: Updated `startGather()` to accept tool type and durability wear amount, updated `getGatherDuration()` to accept speed multiplier
+- **Player.ts**: Fixed `characterGroup` initialization order (created before `super()` call)
+- **main.ts**: Integrated all Phase 3 systems, added key bindings (I/Q/R/1-9/click), building preview update loop, tool durability wear during gathering
+
+### Files Created
+- src/systems/Crafting.ts
+- src/systems/ToolManager.ts
+- src/systems/Building.ts
+- src/ui/InventoryUI.ts
+- README.md
+- .gitignore
+
+### Files Modified
+- src/systems/Inventory.ts
+- src/entities/Entity.ts
+- src/entities/Player.ts
+- src/entities/ResourceNode.ts
+- src/main.ts
+- CURRENT_STATE.md
+- CHANGELOG.md
+
+### Controls Added
+| Key | Action |
+|-----|--------|
+| I | Toggle inventory screen |
+| Q | Toggle building preview |
+| R | Rotate building (during preview) |
+| Click | Place building (during preview) |
+| 1-9 | Equip/unequip tool from hotbar |

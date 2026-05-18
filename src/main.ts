@@ -12,8 +12,12 @@ import { EntityManager } from './entities/EntityManager.js';
 import { ResourceNode } from './entities/ResourceNode.js';
 import { Inventory } from './systems/Inventory.js';
 import { SaveSystem } from './systems/SaveSystem.js';
+import { CraftingSystem } from './systems/Crafting.js';
+import { ToolManager } from './systems/ToolManager.js';
+import { BuildingSystem } from './systems/Building.js';
+import { InventoryUI } from './ui/InventoryUI.js';
 import { HUD } from './ui/HUD.js';
-import { ToolType, ResourceNode as ResourceType } from './systems/ItemDefinition.js';
+import { ToolType, ResourceNode as ResourceType, getItemDefinition } from './systems/ItemDefinition.js';
 import { Logger } from './utils/Logger.js';
 
 // DOM elements
@@ -74,6 +78,21 @@ function init(): void {
   // Create save system
   const saveSystem = new SaveSystem();
 
+  // Create tool manager
+  const toolManager = new ToolManager();
+
+  // Create crafting system
+  const craftingSystem = new CraftingSystem();
+
+  // Create HUD (needed by InventoryUI)
+  const hud = new HUD(container);
+
+  // Create building system
+  const buildingSystem = new BuildingSystem();
+
+  // Create inventory UI
+  const inventoryUI = new InventoryUI(inventory, hud);
+
   // Create player with inventory
   loadingBar.style.width = '60%';
   const player = new Player(
@@ -95,10 +114,6 @@ function init(): void {
   );
   entityManager.create(player);
   entityManager.tag(player, 'player');
-
-  // Create HUD
-  loadingBar.style.width = '65%';
-  const hud = new HUD(container);
 
   // Create resource nodes (interactive)
   loadingBar.style.width = '70%';
@@ -240,6 +255,10 @@ function init(): void {
   const interactRadius = 5;
   const autoSaveState = { lastMinute: -1 };
 
+  // Building preview state
+  let buildingPreviewActive: boolean = false;
+  let buildingPreviewRotation: number = 0;
+
   // Raycaster for interaction
   const raycaster = new THREE.Raycaster();
   const center = new THREE.Vector2(0, 0);
@@ -267,10 +286,11 @@ function init(): void {
         hud.hidePrompt();
       }
 
-      // Handle interaction
+      // Handle interaction — gather
       if (input.isActionJustPressed('interact') && nearResource && !gatherTarget) {
-        // Try to start gathering
-        const result = nearResource.startGather(ToolType.NONE);
+        const toolType = toolManager.getEquippedToolType();
+        const durabilityWear = toolManager.getEquippedTool() ? 0.5 : 0;
+        const result = nearResource.startGather(toolType, durabilityWear);
         if (result) {
           gatherTarget = nearResource;
           gatherProgress = 0;
@@ -281,17 +301,35 @@ function init(): void {
       // Process gathering
       if (gatherTarget && gatherTarget.isActive()) {
         gatherProgress += dt;
-        const totalGatherTime = gatherTarget.getGatherDuration();
+        const speedMult = toolManager.getSpeedMultiplier();
+        const totalGatherTime = gatherTarget.getGatherDuration(speedMult);
         const progress = Math.min(gatherProgress / totalGatherTime, 1);
         hud.showGatherProgress(progress);
 
         if (gatherProgress >= totalGatherTime) {
           hud.hideGatherProgress();
+
+          // Wear tool durability
+          if (toolManager.getEquippedToolId()) {
+            const wearResult = toolManager.wearTool(gatherTarget.durabilityWearPerTickPublic);
+            if (wearResult.toolBroken) {
+              toolManager.unequipTool();
+              hud.showPrompt('Tool broke! Unequipped.');
+            }
+            toolManager.saveToInventory(inventory);
+          }
+
           gatherTarget = null;
           gatherProgress = 0;
         }
       } else if (!gatherTarget) {
         hud.hideGatherProgress();
+      }
+
+      // Building preview update
+      if (buildingPreviewActive) {
+        const pos = player.getPosition();
+        buildingSystem.updatePreview(pos.x, pos.z, buildingPreviewRotation, terrain);
       }
 
       // Auto-save every 30 seconds (throttled to once per second)
@@ -364,6 +402,83 @@ function init(): void {
   renderer.getDOMElement().addEventListener('click', () => {
     if (!input.isPointerLocked()) {
       input.requestPointerLock();
+    }
+  });
+
+  // Global key bindings for UI and tools
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    // Inventory toggle (I key)
+    if (e.code === 'KeyI' && !e.repeat) {
+      inventoryUI.toggle();
+      return;
+    }
+
+    // Building preview (Q key)
+    if (e.code === 'KeyQ' && !e.repeat) {
+      buildingPreviewActive = !buildingPreviewActive;
+      if (buildingPreviewActive) {
+        // Auto-select first building item in inventory
+        const buildingItems = ['wooden_wall', 'wooden_floor', 'stone_wall'];
+        const selectedBuilding = buildingItems.find(id => inventory.getItemCount(id) > 0);
+        if (selectedBuilding) {
+          buildingSystem.startPreview(selectedBuilding, renderer);
+          hud.showPrompt(`Building: ${getItemDefinition(selectedBuilding)?.name ?? selectedBuilding} — Q: toggle | R: rotate | Click: place | ESC: cancel`);
+        } else {
+          buildingPreviewActive = false;
+          hud.showPrompt('No building items in inventory!');
+        }
+      } else {
+        buildingSystem.stopPreview();
+        hud.hidePrompt();
+      }
+      return;
+    }
+
+    // Building rotation (R key, only during preview)
+    if (e.code === 'KeyR' && buildingPreviewActive) {
+      buildingPreviewRotation = (buildingPreviewRotation + 45) % 360;
+      buildingSystem.updatePreview(
+        player.getPosition().x,
+        player.getPosition().z,
+        buildingPreviewRotation,
+        terrain
+      );
+      return;
+    }
+
+    // Build placement (Left click during preview)
+    // Handled in the mouse click listener below
+
+    // Tool quick-equip (number keys 1-9 for hotbar)
+    if (!e.repeat && e.key >= '1' && e.key <= '9') {
+      const hotbarIndex = parseInt(e.key) - 1;
+      const hotbarSlot = inventory.getSlot(hotbarIndex);
+      if (hotbarSlot.itemId && getItemDefinition(hotbarSlot.itemId)?.type === 'tool') {
+        if (toolManager.getEquippedToolId() === hotbarSlot.itemId) {
+          toolManager.unequipTool();
+          hud.showPrompt('Tool unequipped');
+        } else {
+          toolManager.equipTool(hotbarSlot.itemId, inventory);
+          const info = toolManager.getDurabilityInfo();
+          if (info) {
+            hud.showPrompt(`${getItemDefinition(hotbarSlot.itemId)?.name} equipped — ${info.current}/${info.max} durability`);
+          }
+        }
+      }
+      return;
+    }
+
+    // Inventory keyboard navigation
+    inventoryUI.handleKeyDown(e.code);
+  });
+
+  // Mouse click for building placement
+  renderer.getDOMElement().addEventListener('click', () => {
+    if (buildingPreviewActive && input.isPointerLocked()) {
+      if (buildingSystem.placeBuilding(inventory, entityManager, renderer, terrain)) {
+        const buildings = buildingSystem.getPlacedBuildings();
+        hud.showPrompt(`Building placed! Total: ${buildings.length}`);
+      }
     }
   });
 
