@@ -21,6 +21,7 @@ export class Input {
   private mouseButtonsJustReleased: Set<number> = new Set();
   private actionMap: Map<string, string[]> = new Map();
   private pointerLocked: boolean = false;
+  private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 
   constructor() {
     this.setupDefaultBindings();
@@ -69,15 +70,10 @@ export class Input {
       this.keysJustReleased.add(e.code);
     });
 
-    // Mouse movement
-    window.addEventListener('mousemove', (e: MouseEvent) => {
-      this.mousePrevious.x = this.mousePosition.x;
-      this.mousePrevious.y = this.mousePosition.y;
-      this.mousePosition.x = e.clientX;
-      this.mousePosition.y = e.clientY;
-      this.mouseDelta.x = e.movementX || 0;
-      this.mouseDelta.y = e.movementY || 0;
-    });
+    // Mouse movement (attached to canvas when pointer lock is active)
+    // We do NOT attach a window-level listener because pointer-locked
+    // mouse events only fire on the locked element and movementX/Y are
+    // not reliably available on events that bubble to window.
 
     // Mouse button events
     window.addEventListener('mousedown', (e: MouseEvent) => {
@@ -92,7 +88,16 @@ export class Input {
 
     // Pointer lock
     window.addEventListener('pointerlockchange', () => {
+      const wasLocked = this.pointerLocked;
       this.pointerLocked = document.pointerLockElement !== null;
+
+      // Remove mousemove listener when pointer lock is released
+      if (wasLocked && !this.pointerLocked && this.mouseMoveHandler) {
+        const oldTarget = document.querySelector('canvas') as HTMLCanvasElement | null;
+        if (oldTarget) {
+          oldTarget.removeEventListener('mousemove', this.mouseMoveHandler);
+        }
+      }
     });
 
     Logger.info('Input', 'Input system initialized with default bindings');
@@ -185,15 +190,35 @@ export class Input {
    */
   requestPointerLock(canvas?: HTMLCanvasElement): void {
     const target = canvas ?? (document.querySelector('canvas') as HTMLCanvasElement | null);
-    if (target) {
-      target.requestPointerLock();
+    if (!target) return;
+
+    // Attach mousemove listener to the locked element so we capture movementX/Y
+    if (!this.mouseMoveHandler) {
+      this.mouseMoveHandler = (e: MouseEvent) => {
+        this.mousePrevious.x = this.mousePosition.x;
+        this.mousePrevious.y = this.mousePosition.y;
+        this.mousePosition.x = e.clientX;
+        this.mousePosition.y = e.clientY;
+        this.mouseDelta.x = e.movementX || 0;
+        this.mouseDelta.y = e.movementY || 0;
+      };
     }
+    target.addEventListener('mousemove', this.mouseMoveHandler);
+    target.requestPointerLock();
   }
 
   /**
    * Release pointer lock.
    */
   releasePointerLock(): void {
+    // Remove mousemove listener
+    if (this.mouseMoveHandler) {
+      const oldTarget = document.querySelector('canvas') as HTMLCanvasElement | null;
+      if (oldTarget) {
+        oldTarget.removeEventListener('mousemove', this.mouseMoveHandler);
+      }
+      this.mouseMoveHandler = null;
+    }
     document.exitPointerLock();
   }
 
