@@ -406,7 +406,11 @@ function init(): void {
   // Pointer lock on canvas click
   renderer.getDOMElement().addEventListener('click', () => {
     if (!input.isPointerLocked()) {
-      input.requestPointerLock();
+      Logger.info('Main', 'Requesting pointer lock...');
+      input.requestPointerLock(renderer.getDOMElement());
+      setTimeout(() => {
+        Logger.info('Main', `Pointer locked: ${input.isPointerLocked()}`);
+      }, 100);
     }
   });
 

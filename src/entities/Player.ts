@@ -193,6 +193,9 @@ export class Player extends Entity {
       this.yaw -= mouseDelta.x * this.config.mouseSensitivity;
       this.pitch -= mouseDelta.y * this.config.mouseSensitivity;
       this.pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, this.pitch));
+      Logger.debug('Player', `Mouse look: dx=${mouseDelta.x}, dy=${mouseDelta.y}, yaw=${this.yaw.toFixed(2)}, pitch=${this.pitch.toFixed(2)}`);
+    } else {
+      Logger.debug('Player', 'Mouse look skipped: pointer not locked');
     }
 
     // Movement direction (camera-relative)

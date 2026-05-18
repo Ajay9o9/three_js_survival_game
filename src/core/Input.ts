@@ -181,11 +181,12 @@ export class Input {
 
   /**
    * Request pointer lock for FPS-style mouse control.
+   * @param canvas - Optional canvas element; falls back to first <canvas> in DOM.
    */
-  requestPointerLock(): void {
-    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-    if (canvas) {
-      canvas.requestPointerLock();
+  requestPointerLock(canvas?: HTMLCanvasElement): void {
+    const target = canvas ?? (document.querySelector('canvas') as HTMLCanvasElement | null);
+    if (target) {
+      target.requestPointerLock();
     }
   }
 
