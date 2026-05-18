@@ -39,6 +39,7 @@ export class InventoryUI {
       align-items: center;
       z-index: 1000;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      pointer-events: none;
     `;
 
     this.buildUI();
@@ -125,6 +126,30 @@ export class InventoryUI {
     this.overlay.appendChild(instructions);
 
     this.container.appendChild(this.overlay);
+
+    // Click on overlay background (not on grid) closes inventory and locks pointer
+    this.container.addEventListener('click', (e: MouseEvent) => {
+      // Only close if clicking on the overlay itself, not on a slot
+      if (e.target === this.container) {
+        this.hide();
+        // Request pointer lock on the canvas after closing
+        this.requestPointerLock();
+      }
+    });
+  }
+
+  /** Set a callback to request pointer lock on the canvas. */
+  setOnPointerLock(callback: () => void): void {
+    this.onPointerLock = callback;
+  }
+
+  private onPointerLock: (() => void) | null = null;
+
+  /** Request pointer lock (calls the registered callback). */
+  private requestPointerLock(): void {
+    if (this.onPointerLock) {
+      this.onPointerLock();
+    }
   }
 
   /** Update the UI to reflect current inventory state. */
@@ -193,6 +218,7 @@ export class InventoryUI {
   show(): void {
     this.visible = true;
     this.container.style.display = 'flex';
+    this.container.style.pointerEvents = 'auto';
     this.hud.hidePrompt();
     this.updateUI();
     Logger.info('InventoryUI', 'Inventory opened');
@@ -202,6 +228,7 @@ export class InventoryUI {
   hide(): void {
     this.visible = false;
     this.container.style.display = 'none';
+    this.container.style.pointerEvents = 'none';
     Logger.info('InventoryUI', 'Inventory closed');
   }
 

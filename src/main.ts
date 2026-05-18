@@ -92,6 +92,11 @@ function init(): void {
 
   // Create inventory UI
   const inventoryUI = new InventoryUI(inventory, hud);
+  inventoryUI.setOnPointerLock(() => {
+    if (!input.isPointerLocked()) {
+      input.requestPointerLock();
+    }
+  });
 
   // Create player with inventory
   loadingBar.style.width = '60%';
