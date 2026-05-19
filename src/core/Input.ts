@@ -90,6 +90,7 @@ export class Input {
     window.addEventListener('pointerlockchange', () => {
       const wasLocked = this.pointerLocked;
       this.pointerLocked = document.pointerLockElement !== null;
+      console.log(`[Input] pointerlockchange: ${wasLocked} -> ${this.pointerLocked}, lockedElement=${document.pointerLockElement?.tagName}`);
 
       // Remove mousemove listener when pointer lock is released
       if (wasLocked && !this.pointerLocked && this.mouseMoveHandler) {
@@ -201,6 +202,7 @@ export class Input {
         this.mousePosition.y = e.clientY;
         this.mouseDelta.x = e.movementX || 0;
         this.mouseDelta.y = e.movementY || 0;
+        console.log(`[Input] mousemove: dx=${e.movementX} dy=${e.movementY} -> delta=${this.mouseDelta.x},${this.mouseDelta.y}`);
       };
     }
     target.addEventListener('mousemove', this.mouseMoveHandler);
