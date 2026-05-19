@@ -66,7 +66,7 @@ export class Player extends Entity {
       cameraDistance: 8,
       cameraHeight: 4,
       cameraSmoothness: 8,
-      mouseSensitivity: 0.002,
+      mouseSensitivity: 0.005,
       ...config,
     };
 
